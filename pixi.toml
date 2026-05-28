@@ -1,0 +1,22 @@
+[workspace]
+authors = ["dvl0p <245560527+dvl0p@users.noreply.github.com>"]
+channels = ["conda-forge"]
+name = "linkctl"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks.build]
+cmd = "go build -o $GOBIN $PIXI_PROJECT_ROOT/cmd/linkctl/."
+
+[tasks.linkctl]
+cmd = "linkctl"
+depends-on = ["build"]
+
+[activation.env]
+GOBIN="$PIXI_PROJECT_ROOT/bin"
+PATH="$GOBIN:$PATH"
+CGO_ENABLED="0"
+
+[dependencies]
+go = ">=1.26.3,<2"
+

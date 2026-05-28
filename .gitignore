@@ -1,0 +1,13 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+
+# ignore log
+log/
+
+# ignore compiled binaries
+bin/*
+!bin/.gitkeep
+
+# ignore data
+data/
