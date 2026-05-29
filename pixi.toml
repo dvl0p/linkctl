@@ -5,12 +5,19 @@ name = "linkctl"
 platforms = ["linux-64"]
 version = "0.1.0"
 
-[tasks.build]
+[tasks.linkctl-build]
 cmd = "go build -o $GOBIN $PIXI_PROJECT_ROOT/cmd/linkctl/."
 
 [tasks.linkctl]
 cmd = "linkctl"
-depends-on = ["build"]
+depends-on = ["linkctl-build"]
+
+[tasks.linkctld-build]
+cmd = "go build -o $GOBIN $PIXI_PROJECT_ROOT/cmd/linkctld/."
+
+[tasks.linkctld]
+cmd = "linkctld"
+depends-on = ["linkctld-build"]
 
 [activation.env]
 GOBIN="$PIXI_PROJECT_ROOT/bin"
