@@ -6,23 +6,50 @@ platforms = ["linux-64"]
 version = "0.1.0"
 
 [tasks.linkctl-build]
-cmd = "go build -o $GOBIN $PIXI_PROJECT_ROOT/cmd/linkctl/."
+cmd = "go build -o $GOBIN $PIXI_PROJECT_ROOT/cmd/linkctl"
 
 [tasks.linkctl]
 cmd = "linkctl"
 depends-on = ["linkctl-build"]
 
 [tasks.linkctld-build]
-cmd = "go build -o $GOBIN $PIXI_PROJECT_ROOT/cmd/linkctld/."
+cmd = "go build -o $GOBIN $PIXI_PROJECT_ROOT/cmd/linkctld"
 
 [tasks.linkctld]
 cmd = "linkctld"
 depends-on = ["linkctld-build"]
 
+[feature.dev.tasks.goose-install]
+cmd = "go install github.com/pressly/goose/v3/cmd/goose@latest"
+
+[feature.dev.tasks.goose]
+cmd = "goose"
+depends-on = ["goose-install"]
+
+[feature.dev.tasks.sqlc-install]
+cmd = "go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest"
+
+[feature.dev.tasks.sqlc]
+cmd = "sqlc generate"
+depends-on = ["sqlc-install"]
+
+[feature.dev.activation.env]
+CGO_ENABLED="0"
+LINKCTL_DEBUG=""
+GOOSE_DRIVER="sqlite3"
+GOOSE_DBSTRING="$PIXI_PROJECT_ROOT/data/linkctl.db"
+GOOSE_MIGRATION_DIR = "$PIXI_PROJECT_ROOT/sql/schema"
+
+[feature.dev.dependencies]
+sqlite = ">=3"
+
+[environments]
+prod = []
+default = ["dev"]
+
 [activation.env]
 GOBIN="$PIXI_PROJECT_ROOT/bin"
 PATH="$GOBIN:$PATH"
-CGO_ENABLED="0"
 
 [dependencies]
 go = ">=1.26.3,<2"
