@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dvl0p/linkctl/internal/store"
 	"github.com/dvl0p/linkctl/internal/api"
+	"github.com/dvl0p/linkctl/internal/store"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 	var dbArg string
 
 	flag.IntVar(&httpPort, "port", 8080, "port to bind server")
-	flag.StringVar(&dbArg, "data", "./data/linkctl.db", 
+	flag.StringVar(&dbArg, "data", "./data/linkctl.db",
 		"database file or directory (env overwrites flag)",
 	)
 
@@ -38,8 +38,8 @@ func main() {
 }
 
 func run(ctx context.Context, cancel context.CancelFunc,
-		httpPort int, dbArg string) int {
-	
+	httpPort int, dbArg string) int {
+
 	logger, err := initLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error initializing logger: %v", err)
@@ -71,12 +71,12 @@ func run(ctx context.Context, cancel context.CancelFunc,
 	}()
 
 	select {
-	case err := <- servErr:
+	case err := <-servErr:
 		logger.Error("could not run server",
 			slog.String("error", err.Error()),
 		)
 		return 1
-	case <- ctx.Done():
+	case <-ctx.Done():
 		logger.Info("server shutdown signal received")
 	}
 

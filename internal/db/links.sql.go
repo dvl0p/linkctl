@@ -36,24 +36,42 @@ func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, e
 	return i, err
 }
 
-const deleteLink = `-- name: DeleteLink :exec
+const deleteLink = `-- name: DeleteLink :one
 DELETE FROM links
 WHERE id = ?
+RETURNING id, created_at, updated_at, url, interval_seconds
 `
 
-func (q *Queries) DeleteLink(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, deleteLink, id)
-	return err
+func (q *Queries) DeleteLink(ctx context.Context, id int64) (Link, error) {
+	row := q.db.QueryRowContext(ctx, deleteLink, id)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Url,
+		&i.IntervalSeconds,
+	)
+	return i, err
 }
 
-const deleteLinkFromURL = `-- name: DeleteLinkFromURL :exec
+const deleteLinkFromURL = `-- name: DeleteLinkFromURL :one
 DELETE FROM links
 WHERE url = ?
+RETURNING id, created_at, updated_at, url, interval_seconds
 `
 
-func (q *Queries) DeleteLinkFromURL(ctx context.Context, url string) error {
-	_, err := q.db.ExecContext(ctx, deleteLinkFromURL, url)
-	return err
+func (q *Queries) DeleteLinkFromURL(ctx context.Context, url string) (Link, error) {
+	row := q.db.QueryRowContext(ctx, deleteLinkFromURL, url)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Url,
+		&i.IntervalSeconds,
+	)
+	return i, err
 }
 
 const getLink = `-- name: GetLink :one
@@ -126,11 +144,12 @@ func (q *Queries) ListLinks(ctx context.Context) ([]Link, error) {
 	return items, nil
 }
 
-const updateLink = `-- name: UpdateLink :exec
+const updateLink = `-- name: UpdateLink :one
 UPDATE links
     SET updated_at = datetime('now'),
     interval_seconds = ?
 WHERE id = ?
+RETURNING id, created_at, updated_at, url, interval_seconds
 `
 
 type UpdateLinkParams struct {
@@ -138,16 +157,25 @@ type UpdateLinkParams struct {
 	ID              int64
 }
 
-func (q *Queries) UpdateLink(ctx context.Context, arg UpdateLinkParams) error {
-	_, err := q.db.ExecContext(ctx, updateLink, arg.IntervalSeconds, arg.ID)
-	return err
+func (q *Queries) UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error) {
+	row := q.db.QueryRowContext(ctx, updateLink, arg.IntervalSeconds, arg.ID)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Url,
+		&i.IntervalSeconds,
+	)
+	return i, err
 }
 
-const updateLinkFromURL = `-- name: UpdateLinkFromURL :exec
+const updateLinkFromURL = `-- name: UpdateLinkFromURL :one
 UPDATE links
     SET updated_at = datetime('now'),
     interval_seconds = ?
 WHERE url = ?
+RETURNING id, created_at, updated_at, url, interval_seconds
 `
 
 type UpdateLinkFromURLParams struct {
@@ -155,7 +183,15 @@ type UpdateLinkFromURLParams struct {
 	Url             string
 }
 
-func (q *Queries) UpdateLinkFromURL(ctx context.Context, arg UpdateLinkFromURLParams) error {
-	_, err := q.db.ExecContext(ctx, updateLinkFromURL, arg.IntervalSeconds, arg.Url)
-	return err
+func (q *Queries) UpdateLinkFromURL(ctx context.Context, arg UpdateLinkFromURLParams) (Link, error) {
+	row := q.db.QueryRowContext(ctx, updateLinkFromURL, arg.IntervalSeconds, arg.Url)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Url,
+		&i.IntervalSeconds,
+	)
+	return i, err
 }

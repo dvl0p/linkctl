@@ -13,46 +13,44 @@ import (
 	"github.com/dvl0p/linkctl/internal/store"
 )
 
-type Endpoint func(http.ResponseWriter, *http.Request) int
+type Endpoint func(http.ResponseWriter, *http.Request) (int, error)
 
 type Server struct {
-	httpServer	*http.Server
-	logger		*slog.Logger
-	cancel		context.CancelFunc
-	store		*store.Store
+	httpServer *http.Server
+	logger     *slog.Logger
+	cancel     context.CancelFunc
+	store      *store.Store
 }
 
 func NewServer(cancel context.CancelFunc, store *store.Store,
-		httpPort int, logger *slog.Logger) *Server {
+	httpPort int, logger *slog.Logger) *Server {
 
 	serveMux := http.NewServeMux()
 
 	httpServer := &http.Server{
-		Addr: "127.0.0.1:" + strconv.Itoa(httpPort),
-		Handler: serveMux,
-		ReadTimeout: 5 * time.Second,
+		Addr:         "127.0.0.1:" + strconv.Itoa(httpPort),
+		Handler:      serveMux,
+		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
-		IdleTimeout: 120 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	s := &Server{
 		httpServer: httpServer,
-		logger: logger,
-		cancel: cancel,
-		store: store,
+		logger:     logger,
+		cancel:     cancel,
+		store:      store,
 	}
 
 	adaptor := loggerAdaptor(logger)
 
 	serveMux.Handle("GET /healthz", adaptor(handlerHealth))
-	/*
+
 	serveMux.Handle("POST /v1/links", adaptor(s.handlerCreateLink))
 	serveMux.Handle("GET /v1/links", adaptor(s.handlerListLinks))
-	serveMux.Handle("GET /v1/links/{linkID}", adaptor(s.handlerGetLink))
-	serveMux.Handle("GET /v1/links/url/{linkURL}", adaptor(s.handlerGetLinkFromURL))
-	serveMux.Handle("PATCH /v1/links", adaptor(s.handlerUpdateLinks))
-	serveMux.Handle("PUT /v1/links", adaptor(s.handlerUpdateLinks))
-	*/
+	serveMux.Handle("PATCH /v1/links", adaptor(s.handlerUpdateLink))
+	serveMux.Handle("PUT /v1/links", adaptor(s.handlerUpdateLink))
+	serveMux.Handle("DELETE /v1/links", adaptor(s.handlerDeleteLink))
 
 	return s
 }
@@ -89,8 +87,18 @@ func loggerAdaptor(logger *slog.Logger) func(Endpoint) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			status := endPoint(w, r)
-			
+			status, err := endPoint(w, r)
+			if err != nil {
+				logger.Error("http request returned error",
+					slog.String("method", r.Method),
+					slog.String("path", r.URL.Path),
+					slog.Int("status", status),
+					slog.Duration("duration", time.Since(start)),
+					slog.String("error", err.Error()),
+				)
+				return
+			}
+
 			logger.Info("http request completed",
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
@@ -101,9 +109,9 @@ func loggerAdaptor(logger *slog.Logger) func(Endpoint) http.Handler {
 	}
 }
 
-func handlerHealth(w http.ResponseWriter, 
-		r *http.Request) int {
+func handlerHealth(w http.ResponseWriter,
+	r *http.Request) (int, error) {
 	code := http.StatusOK
 	w.WriteHeader(code)
-	return code
+	return code, nil
 }

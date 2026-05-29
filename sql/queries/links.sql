@@ -18,22 +18,26 @@ WHERE id = ?;
 SELECT * FROM links
 WHERE url = ?;
 
--- name: UpdateLink :exec
+-- name: UpdateLink :one
 UPDATE links
     SET updated_at = datetime('now'),
     interval_seconds = ?
-WHERE id = ?;
+WHERE id = ?
+RETURNING *;
 
--- name: UpdateLinkFromURL :exec
+-- name: UpdateLinkFromURL :one
 UPDATE links
     SET updated_at = datetime('now'),
     interval_seconds = ?
-WHERE url = ?;
+WHERE url = ?
+RETURNING *;
 
--- name: DeleteLink :exec
+-- name: DeleteLink :one
 DELETE FROM links
-WHERE id = ?;
+WHERE id = ?
+RETURNING *;
 
--- name: DeleteLinkFromURL :exec
+-- name: DeleteLinkFromURL :one
 DELETE FROM links
-WHERE url = ?;
+WHERE url = ?
+RETURNING *;
