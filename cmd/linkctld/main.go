@@ -34,14 +34,13 @@ func main() {
 func run(ctx context.Context, cancel context.CancelFunc,
 		httpPort int, dataDir string) int {
 	
-	logger, closeLogger, err := initLogger()
+	logger, err := initLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error initializing logger: %v", err)
 		return 1
 	}
-	defer closeLogger()
 
-	logger.Info("Welcome to linkctl! 🗿",
+	logger.Info("Welcome to linkctld 🗿",
 		slog.Int("port", httpPort),
 		slog.String("data_dir", dataDir),
 	)
