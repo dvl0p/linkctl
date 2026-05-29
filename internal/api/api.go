@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"context"
@@ -9,18 +9,21 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/dvl0p/linkctl/internal/store"
 )
 
-type Endpoint func(http.ResponseWriter, *http.Request) (int, error)
+type Endpoint func(http.ResponseWriter, *http.Request) int
 
-type server struct {
+type Server struct {
 	httpServer	*http.Server
 	logger		*slog.Logger
 	cancel		context.CancelFunc
+	store		*store.Store
 }
 
-func newServer(cancel context.CancelFunc,
-		httpPort int, logger *slog.Logger) *server {
+func NewServer(cancel context.CancelFunc, store *store.Store,
+		httpPort int, logger *slog.Logger) *Server {
 
 	serveMux := http.NewServeMux()
 
@@ -32,20 +35,29 @@ func newServer(cancel context.CancelFunc,
 		IdleTimeout: 120 * time.Second,
 	}
 
-	s := &server{
+	s := &Server{
 		httpServer: httpServer,
 		logger: logger,
 		cancel: cancel,
+		store: store,
 	}
 
 	adaptor := loggerAdaptor(logger)
 
-	serveMux.Handle("GET /healthz", adaptor(s.handlerHealth))
+	serveMux.Handle("GET /healthz", adaptor(handlerHealth))
+	/*
+	serveMux.Handle("POST /v1/links", adaptor(s.handlerCreateLink))
+	serveMux.Handle("GET /v1/links", adaptor(s.handlerListLinks))
+	serveMux.Handle("GET /v1/links/{linkID}", adaptor(s.handlerGetLink))
+	serveMux.Handle("GET /v1/links/url/{linkURL}", adaptor(s.handlerGetLinkFromURL))
+	serveMux.Handle("PATCH /v1/links", adaptor(s.handlerUpdateLinks))
+	serveMux.Handle("PUT /v1/links", adaptor(s.handlerUpdateLinks))
+	*/
 
 	return s
 }
 
-func (s *server) start() error {
+func (s *Server) Start() error {
 	s.logger.Debug(
 		"opening listening socket",
 		slog.String("addr", s.httpServer.Addr),
@@ -65,7 +77,7 @@ func (s *server) start() error {
 	return nil
 }
 
-func (s *server) shutdown(ctx context.Context) error {
+func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Debug(
 		"shutting down server", slog.String("addr", s.httpServer.Addr),
 	)
@@ -77,10 +89,7 @@ func loggerAdaptor(logger *slog.Logger) func(Endpoint) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			status, err := endPoint(w, r)
-			if err != nil {
-				http.Error(w, err.Error(), status)
-			}
+			status := endPoint(w, r)
 			
 			logger.Info("http request completed",
 				slog.String("method", r.Method),
@@ -92,9 +101,9 @@ func loggerAdaptor(logger *slog.Logger) func(Endpoint) http.Handler {
 	}
 }
 
-func (s *server) handlerHealth(w http.ResponseWriter, 
-		r *http.Request) (int, error) {
+func handlerHealth(w http.ResponseWriter, 
+		r *http.Request) int {
 	code := http.StatusOK
 	w.WriteHeader(code)
-	return code, nil
+	return code
 }
