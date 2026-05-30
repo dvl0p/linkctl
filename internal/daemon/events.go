@@ -10,15 +10,15 @@ type event interface {
 }
 
 type eventStart struct {
-	linkID int64
-	url string
+	linkID          int64
+	url             string
 	intervalSeconds int64
-	done chan struct{}
+	done            chan struct{}
 }
 
 type eventStop struct {
 	linkID int64
-	done chan struct{}
+	done   chan struct{}
 }
 
 type eventCount struct {
@@ -26,10 +26,10 @@ type eventCount struct {
 }
 
 func (ev eventStart) isDaemonEvent() {}
-func (ev eventStop) isDaemonEvent() {}
+func (ev eventStop) isDaemonEvent()  {}
 func (ev eventCount) isDaemonEvent() {}
 
-func (d *daemon) starter(ev eventStart,	workMap map[int64]context.CancelFunc) {
+func (d *daemon) starter(ev eventStart, workMap map[int64]context.CancelFunc) {
 	defer close(ev.done)
 	cancel, exists := workMap[ev.linkID]
 	if exists {

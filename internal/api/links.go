@@ -319,7 +319,7 @@ func (s *Server) handlerUpdateLinkFromURL(w http.ResponseWriter,
 }
 
 func (s *Server) routerDeleteLink(w http.ResponseWriter,
-		r *http.Request) (int, error) {
+	r *http.Request) (int, error) {
 
 	if r.URL.Query().Has("id") {
 		return s.handlerDeleteLinkFromID(w, r)
@@ -333,7 +333,7 @@ func (s *Server) routerDeleteLink(w http.ResponseWriter,
 }
 
 func (s *Server) handlerDeleteLinkFromID(w http.ResponseWriter,
-		r *http.Request) (int, error) {
+	r *http.Request) (int, error) {
 	linkIDStr := r.URL.Query().Get("id")
 	if linkIDStr == "" {
 		code := http.StatusBadRequest
@@ -368,7 +368,7 @@ func (s *Server) handlerDeleteLinkFromID(w http.ResponseWriter,
 }
 
 func (s *Server) handlerDeleteLinkFromURL(w http.ResponseWriter,
-		r *http.Request) (int, error) {
+	r *http.Request) (int, error) {
 
 	urlStr := r.URL.Query().Get("url")
 	if urlStr == "" {

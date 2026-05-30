@@ -49,7 +49,7 @@ func NewServer(cancel context.CancelFunc, store *store.Store,
 		logger:     logger,
 		cancel:     cancel,
 		store:      store,
-		manager: manager,
+		manager:    manager,
 	}
 
 	adaptor := loggerAdaptor(logger)
@@ -89,7 +89,7 @@ func (s *Server) Start() error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Debug(
-		"shutting down linkctld api server", 
+		"shutting down linkctld api server",
 		slog.String("addr", s.httpServer.Addr),
 	)
 	return s.httpServer.Shutdown(ctx)

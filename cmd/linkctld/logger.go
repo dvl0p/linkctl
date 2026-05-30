@@ -15,7 +15,7 @@ func initLogger() (*slog.Logger, error) {
 	}
 
 	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
+		Level:     level,
 		AddSource: isDebug,
 	})
 

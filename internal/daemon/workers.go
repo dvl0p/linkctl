@@ -7,16 +7,16 @@ import (
 )
 
 func (d *daemon) StartWorker(ctx context.Context,
-		linkID int64, url string, intervalSeconds int64) {
+	linkID int64, url string, intervalSeconds int64) {
 	done := make(chan struct{})
 	select {
 	case <-ctx.Done():
 		return
 	case d.eventQueue <- eventStart{
-		linkID: linkID,
-		url: url,
-		intervalSeconds: intervalSeconds, 
-		done: done}:
+		linkID:          linkID,
+		url:             url,
+		intervalSeconds: intervalSeconds,
+		done:            done}:
 	}
 	select {
 	case <-done:
@@ -47,13 +47,13 @@ func (d *daemon) CountWorkers(ctx context.Context) int {
 	select {
 	case <-ctx.Done():
 		return 0
-	case count := <- ch:
+	case count := <-ch:
 		return count
 	}
 }
 
-func (d *daemon) worker(ctx context.Context, 
-		linkID int64, url string, intervalSeconds int64) {
+func (d *daemon) worker(ctx context.Context,
+	linkID int64, url string, intervalSeconds int64) {
 	ticker := time.NewTicker(time.Second * time.Duration(intervalSeconds))
 	for {
 		select {
@@ -67,4 +67,3 @@ func (d *daemon) worker(ctx context.Context,
 		}
 	}
 }
-

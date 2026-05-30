@@ -9,19 +9,19 @@ import (
 	"github.com/dvl0p/linkctl/internal/store"
 )
 
-type daemon struct{
+type daemon struct {
 	eventQueue chan event
-	logger	*slog.Logger
-	store	*store.Store
-	ctx		context.Context
-	wg		sync.WaitGroup
+	logger     *slog.Logger
+	store      *store.Store
+	ctx        context.Context
+	wg         sync.WaitGroup
 }
 
-func New(store *store.Store, logger *slog.Logger) (*daemon) {
+func New(store *store.Store, logger *slog.Logger) *daemon {
 	return &daemon{
 		eventQueue: make(chan event, 100),
-		logger: logger,
-		store: store,
+		logger:     logger,
+		store:      store,
 	}
 }
 
@@ -45,11 +45,11 @@ func (d *daemon) Start(ctx context.Context) error {
 		)
 		workCtx, workCancel := context.WithCancel(ctx)
 		workMap[linkDB.ID] = workCancel
-		d.wg.Go(func() { 
-			d.worker(workCtx, linkDB.ID, linkDB.Url, linkDB.IntervalSeconds) 
+		d.wg.Go(func() {
+			d.worker(workCtx, linkDB.ID, linkDB.Url, linkDB.IntervalSeconds)
 		})
 	}
-	d.logger.Info("started linkctld daemon", 
+	d.logger.Info("started linkctld daemon",
 		slog.Int("workers", len(workMap)),
 	)
 	d.run(workMap)

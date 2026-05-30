@@ -41,7 +41,7 @@ func main() {
 
 func run(ctx context.Context, cancel context.CancelFunc,
 	httpPort int, dbArg string) int {
-	
+
 	logger, err := initLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error initializing logger: %v", err)
@@ -103,7 +103,6 @@ func run(ctx context.Context, cancel context.CancelFunc,
 		logger.Info("shutdown signal received")
 	}
 
-
 	ctxShutdown, cancelShutdown := context.WithTimeout(
 		context.Background(),
 		5*time.Second,
@@ -149,7 +148,7 @@ func run(ctx context.Context, cancel context.CancelFunc,
 func getDBPath(dbArg string, logger *slog.Logger) string {
 	dbEnv, set := os.LookupEnv("LINKCTL_DBPATH")
 	if set {
-		logger.Debug("getting db path from env", 
+		logger.Debug("getting db path from env",
 			slog.String("db_path", dbEnv),
 		)
 		return dbEnv
