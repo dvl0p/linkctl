@@ -80,11 +80,11 @@ func (d *daemon) run(workMap map[int64]context.CancelFunc) {
 }
 
 func (d *daemon) shutdown(workMap map[int64]context.CancelFunc) {
-	d.logger.Info("shutting down linkctld daemon",
-		slog.Int("workers", len(workMap)),
-	)
 	for _, cancel := range workMap {
 		cancel()
 	}
 	d.wg.Wait()
+	d.logger.Info("shut down linkctld daemon",
+		slog.Int("workers", len(workMap)),
+	)
 }

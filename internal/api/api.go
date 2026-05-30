@@ -77,7 +77,7 @@ func (s *Server) Start() error {
 		return fmt.Errorf("could not bind tcp socket: %w", err)
 	}
 
-	s.logger.Debug(
+	s.logger.Info(
 		"initializing linkctld api server",
 		slog.String("addr", s.httpServer.Addr),
 	)
@@ -88,7 +88,7 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	s.logger.Debug(
+	s.logger.Info(
 		"shutting down linkctld api server",
 		slog.String("addr", s.httpServer.Addr),
 	)

@@ -115,6 +115,7 @@ func run(ctx context.Context, cancel context.CancelFunc,
 			slog.String("error", err.Error()),
 		)
 		returnCode = 1
+	} else {
 	}
 
 	daemon.CloseQueue()
