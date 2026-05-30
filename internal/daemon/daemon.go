@@ -13,7 +13,6 @@ type daemon struct {
 	eventQueue chan event
 	logger     *slog.Logger
 	store      *store.Store
-	ctx        context.Context
 	wg         sync.WaitGroup
 }
 
@@ -31,8 +30,7 @@ func (d *daemon) CloseQueue() {
 }
 
 func (d *daemon) Start(ctx context.Context) error {
-	d.ctx = ctx
-	linksDB, err := d.store.Queries.ListLinks(d.ctx)
+	linksDB, err := d.store.Queries.ListLinks(ctx)
 	if err != nil {
 		return fmt.Errorf("could not retrieve links from db: %w", err)
 	}
@@ -52,14 +50,15 @@ func (d *daemon) Start(ctx context.Context) error {
 	d.logger.Info("started linkctld daemon",
 		slog.Int("workers", len(workMap)),
 	)
-	d.run(workMap)
+	d.run(ctx, workMap)
 	return nil
 }
 
-func (d *daemon) run(workMap map[int64]context.CancelFunc) {
+func (d *daemon) run(ctx context.Context,
+	workMap map[int64]context.CancelFunc) {
 	for {
 		select {
-		case <-d.ctx.Done():
+		case <-ctx.Done():
 			d.shutdown(workMap)
 			return
 		case ev, ok := <-d.eventQueue:
@@ -69,7 +68,7 @@ func (d *daemon) run(workMap map[int64]context.CancelFunc) {
 			}
 			switch ev := ev.(type) {
 			case eventStart:
-				d.starter(ev, workMap)
+				d.starter(ev, ctx, workMap)
 			case eventStop:
 				d.stopper(ev, workMap)
 			case eventCount:

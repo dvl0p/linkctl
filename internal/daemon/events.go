@@ -29,7 +29,8 @@ func (ev eventStart) isDaemonEvent() {}
 func (ev eventStop) isDaemonEvent()  {}
 func (ev eventCount) isDaemonEvent() {}
 
-func (d *daemon) starter(ev eventStart, workMap map[int64]context.CancelFunc) {
+func (d *daemon) starter(ev eventStart, ctx context.Context,
+	workMap map[int64]context.CancelFunc) {
 	defer close(ev.done)
 	cancel, exists := workMap[ev.linkID]
 	if exists {
@@ -44,7 +45,7 @@ func (d *daemon) starter(ev eventStart, workMap map[int64]context.CancelFunc) {
 		slog.String("link_url", ev.url),
 		slog.Int64("link_interval_seconds", ev.intervalSeconds),
 	)
-	workCtx, cancel := context.WithCancel(d.ctx)
+	workCtx, cancel := context.WithCancel(ctx)
 	workMap[ev.linkID] = cancel
 	d.wg.Go(func() {
 		d.worker(workCtx, ev.linkID, ev.url, ev.intervalSeconds)

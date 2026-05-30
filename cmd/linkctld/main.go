@@ -56,16 +56,16 @@ func run(ctx context.Context, cancel context.CancelFunc,
 	)
 
 	logger.Debug("initializing store")
-	store, err := store.New(dbPath)
+	db, err := store.New(dbPath)
 	if err != nil {
 		logger.Error("could not initialize db",
 			slog.String("error", err.Error()),
 		)
 		return 1
 	}
-	defer store.Close()
+	defer db.Close()
 
-	daemon := daemon.New(store, logger)
+	daemon := daemon.New(db, logger)
 
 	daemonCtx, daemonCancel := context.WithCancel(context.Background())
 	defer daemonCancel()
@@ -77,7 +77,7 @@ func run(ctx context.Context, cancel context.CancelFunc,
 		daemonErr <- daemon.Start(daemonCtx)
 	})
 
-	server := api.NewServer(cancel, store, daemon, httpPort, logger)
+	server := api.NewServer(cancel, db, daemon, httpPort, logger)
 
 	serverErr := make(chan error, 1)
 	wg.Go(func() {
@@ -115,7 +115,6 @@ func run(ctx context.Context, cancel context.CancelFunc,
 			slog.String("error", err.Error()),
 		)
 		returnCode = 1
-	} else {
 	}
 
 	daemon.CloseQueue()
