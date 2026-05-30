@@ -8,10 +8,12 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/dvl0p/linkctl/internal/api"
+	"github.com/dvl0p/linkctl/internal/daemon"
 	"github.com/dvl0p/linkctl/internal/store"
 )
 
@@ -39,7 +41,7 @@ func main() {
 
 func run(ctx context.Context, cancel context.CancelFunc,
 	httpPort int, dbArg string) int {
-
+	
 	logger, err := initLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error initializing logger: %v", err)
@@ -63,46 +65,99 @@ func run(ctx context.Context, cancel context.CancelFunc,
 	}
 	defer store.Close()
 
-	server := api.NewServer(cancel, store, httpPort, logger)
+	daemon := daemon.New(store, logger)
 
-	servErr := make(chan error, 1)
-	go func() {
-		servErr <- server.Start()
-	}()
+	daemonCtx, daemonCancel := context.WithCancel(context.Background())
+	defer daemonCancel()
+
+	returnCode := 0
+	var wg sync.WaitGroup
+	daemonErr := make(chan error, 1)
+	wg.Go(func() {
+		daemonErr <- daemon.Start(daemonCtx)
+	})
+
+	server := api.NewServer(cancel, store, daemon, httpPort, logger)
+
+	serverErr := make(chan error, 1)
+	wg.Go(func() {
+		serverErr <- server.Start()
+	})
 
 	select {
-	case err := <-servErr:
-		logger.Error("could not run server",
-			slog.String("error", err.Error()),
-		)
-		return 1
+	case err := <-daemonErr:
+		if err != nil {
+			logger.Error("could not start daemon",
+				slog.String("error", err.Error()),
+			)
+			returnCode = 1
+		}
+	case err := <-serverErr:
+		if err != nil {
+			logger.Error("could not run server",
+				slog.String("error", err.Error()),
+			)
+			returnCode = 1
+		}
 	case <-ctx.Done():
-		logger.Info("server shutdown signal received")
+		logger.Info("shutdown signal received")
 	}
 
-	ctxShutdown, cancel := context.WithTimeout(
+
+	ctxShutdown, cancelShutdown := context.WithTimeout(
 		context.Background(),
 		5*time.Second,
 	)
-	defer cancel()
+	defer cancelShutdown()
 
-	if err := server.Shutdown(ctxShutdown); err != nil {
+	err = server.Shutdown(ctxShutdown)
+	if err != nil {
 		logger.Error("could not stop server",
 			slog.String("error", err.Error()),
 		)
-		return 1
+		returnCode = 1
 	}
-	return 0
+
+	daemon.CloseQueue()
+	wg.Wait()
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			logger.Error("server exited with error",
+				slog.String("error", err.Error()),
+			)
+			returnCode = 1
+		}
+	default:
+	}
+
+	select {
+	case err := <-daemonErr:
+		if err != nil {
+			logger.Error("daemon exited with error",
+				slog.String("error", err.Error()),
+			)
+			returnCode = 1
+		}
+	default:
+	}
+
+	return returnCode
 }
 
 func getDBPath(dbArg string, logger *slog.Logger) string {
 	dbEnv, set := os.LookupEnv("LINKCTL_DBPATH")
 	if set {
-		logger.Debug("getting db path from env", slog.String("db_path", dbEnv))
+		logger.Debug("getting db path from env", 
+			slog.String("db_path", dbEnv),
+		)
 		return dbEnv
 	}
 
-	logger.Debug("setting db path from flag", slog.String("db_arg", dbArg))
+	logger.Debug("setting db path from flag",
+		slog.String("db_arg", dbArg),
+	)
 	if strings.HasSuffix(dbArg, ".db") {
 		return dbArg
 	}

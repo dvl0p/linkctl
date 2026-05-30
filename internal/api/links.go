@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"time"
@@ -36,6 +37,31 @@ func (s *Server) handlerCreateLink(w http.ResponseWriter,
 		return code, err
 	}
 
+	if link.IntervalSeconds <= 0 {
+		code := http.StatusBadRequest
+		handlerReplyWithError(w, code, "interval must be greater than zero")
+		return code, errors.New("incompatible negative interval seconds")
+	}
+
+	parsedUrl, err := url.Parse(link.Url)
+	if err != nil {
+		code := http.StatusBadRequest
+		handlerReplyWithError(w, code, "failed parsing link url")
+		return code, errors.New("could not parse request link url")
+	}
+
+	if !parsedUrl.IsAbs() {
+		code := http.StatusBadRequest
+		handlerReplyWithError(w, code, "link url not absolute")
+		return code, errors.New("incompatible relative link url")
+	}
+
+	if parsedUrl.Scheme != "http" && parsedUrl.Scheme != "https" {
+		code := http.StatusBadRequest
+		handlerReplyWithError(w, code, "link url scheme must be http(s)")
+		return code, errors.New("incompatible link url scheme")
+	}
+
 	linkDB, err := s.store.Queries.CreateLink(r.Context(), db.CreateLinkParams{
 		Url:             link.Url,
 		IntervalSeconds: link.IntervalSeconds,
@@ -45,6 +71,10 @@ func (s *Server) handlerCreateLink(w http.ResponseWriter,
 		handlerReplyWithError(w, code, "database error")
 		return code, err
 	}
+
+	s.manager.StartWorker(
+		r.Context(), linkDB.ID, linkDB.Url, linkDB.IntervalSeconds,
+	)
 
 	code := http.StatusCreated
 	handlerReplyWithJSON(w, code, Link{
@@ -164,7 +194,7 @@ func (s *Server) handlerGetLinkFromURL(w http.ResponseWriter,
 	return code, nil
 }
 
-func (s *Server) handlerUpdateLink(w http.ResponseWriter,
+func (s *Server) routerUpdateLink(w http.ResponseWriter,
 	r *http.Request) (int, error) {
 	if r.URL.Query().Has("id") {
 		return s.handlerUpdateLinkFromID(w, r)
@@ -205,18 +235,30 @@ func (s *Server) handlerUpdateLinkFromID(w http.ResponseWriter,
 		return code, err
 	}
 
-	if _, err := s.store.Queries.UpdateLink(r.Context(), db.UpdateLinkParams{
+	if req.IntervalSeconds <= 0 {
+		code := http.StatusBadRequest
+		handlerReplyWithError(w, code, "interval must be greater than zero")
+		return code, errors.New("incompatible negative interval seconds")
+	}
+
+	linkDB, err := s.store.Queries.UpdateLink(r.Context(), db.UpdateLinkParams{
 		ID:              linkID,
 		IntervalSeconds: req.IntervalSeconds,
-	}); err == sql.ErrNoRows {
+	})
+	if err == sql.ErrNoRows {
 		code := http.StatusNotFound
 		handlerReplyWithError(w, code, "no matching link id was found")
 		return code, err
-	} else if err != nil {
+	}
+	if err != nil {
 		code := http.StatusInternalServerError
 		handlerReplyWithError(w, code, "database error")
 		return code, err
 	}
+
+	s.manager.StartWorker(
+		r.Context(), linkDB.ID, linkDB.Url, linkDB.IntervalSeconds,
+	)
 
 	code := http.StatusNoContent
 	w.WriteHeader(code)
@@ -245,26 +287,38 @@ func (s *Server) handlerUpdateLinkFromURL(w http.ResponseWriter,
 		return code, err
 	}
 
-	if _, err := s.store.Queries.UpdateLinkFromURL(r.Context(),
+	if req.IntervalSeconds <= 0 {
+		code := http.StatusBadRequest
+		handlerReplyWithError(w, code, "interval must be greater than zero")
+		return code, errors.New("incompatible negative interval seconds")
+	}
+
+	linkDB, err := s.store.Queries.UpdateLinkFromURL(r.Context(),
 		db.UpdateLinkFromURLParams{
 			Url:             urlStr,
 			IntervalSeconds: req.IntervalSeconds,
-		}); err == sql.ErrNoRows {
+		})
+	if err == sql.ErrNoRows {
 		code := http.StatusNotFound
 		handlerReplyWithError(w, code, "no matching link url was found")
 		return code, err
-	} else if err != nil {
+	}
+	if err != nil {
 		code := http.StatusInternalServerError
 		handlerReplyWithError(w, code, "database error")
 		return code, err
 	}
+
+	s.manager.StartWorker(
+		r.Context(), linkDB.ID, linkDB.Url, linkDB.IntervalSeconds,
+	)
 
 	code := http.StatusNoContent
 	w.WriteHeader(code)
 	return code, nil
 }
 
-func (s *Server) handlerDeleteLink(w http.ResponseWriter,
+func (s *Server) routerDeleteLink(w http.ResponseWriter,
 		r *http.Request) (int, error) {
 
 	if r.URL.Query().Has("id") {
@@ -294,16 +348,20 @@ func (s *Server) handlerDeleteLinkFromID(w http.ResponseWriter,
 		return code, err
 	}
 
-	if _, err := s.store.Queries.DeleteLink(r.Context(),
-			linkID); err == sql.ErrNoRows {
+	linkDB, err := s.store.Queries.DeleteLink(r.Context(), linkID)
+	if err == sql.ErrNoRows {
 		code := http.StatusNotFound
 		handlerReplyWithError(w, code, "no matching link id was found")
 		return code, err
-	} else if err != nil {
+	}
+	if err != nil {
 		code := http.StatusInternalServerError
 		handlerReplyWithError(w, code, "database error")
 		return code, err
 	}
+
+	s.manager.StopWorker(r.Context(), linkDB.ID)
+
 	code := http.StatusNoContent
 	w.WriteHeader(code)
 	return code, nil
@@ -319,23 +377,27 @@ func (s *Server) handlerDeleteLinkFromURL(w http.ResponseWriter,
 		return code, errors.New("delete request missing link url")
 	}
 
-	if _, err := s.store.Queries.DeleteLinkFromURL(r.Context(),
-			urlStr); err == sql.ErrNoRows {
+	linkDB, err := s.store.Queries.DeleteLinkFromURL(r.Context(), urlStr)
+	if err == sql.ErrNoRows {
 		code := http.StatusNotFound
 		handlerReplyWithError(w, code, "no matching link url was found")
 		return code, err
-	} else if err != nil {
+	}
+	if err != nil {
 		code := http.StatusInternalServerError
 		handlerReplyWithError(w, code, "database error")
 		return code, err
 	}
+
+	s.manager.StopWorker(r.Context(), linkDB.ID)
+
 	code := http.StatusNoContent
 	w.WriteHeader(code)
 	return code, nil
 }
 
 func sortLinks(links []Link, sortOrder string) {
-	if sortOrder == "desc" {
+	if sortOrder == "created_at" {
 		slices.SortFunc(links, func(a, b Link) int {
 			return b.CreatedAt.Compare(a.CreatedAt)
 		})
